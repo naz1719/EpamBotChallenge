@@ -295,7 +295,7 @@ var Element = {
 
     START: el('S', 'START'),
     EXIT: el('E', 'EXIT'),
-    HOLE: el('O', 'WALL'),
+    HOLE: el('O', 'HOLE'),
     BOX: el('B', 'BOX'),
     ZOMBIE_START: el('Z', 'ZOMBIE_START'),
     GOLD: el('$', 'GOLD'),
@@ -361,6 +361,10 @@ var Element = {
 
     isWall: function (element) {
         return element.type == 'WALL';
+    },
+
+    isHole: function (element) {
+        return element.type == Element.HOLE;
     }
 };
 
@@ -554,6 +558,21 @@ var Board = function (boardString) {
         return type == 'WALL';
     };
 
+    var isHoleAt = function (x, y, layer) {
+        let type = getAt(layer, x, y).type;
+        return type == Element.HOLE.type;
+    };
+
+    let isMeFlying = function (x, y) {
+        let char = getAt(LAYER3, x, y).char;
+        return char === Element.ROBOT_FLYING.char;
+    };
+
+    let isMeFalling = function (x, y) {
+        let char = getAt(LAYER2, x, y).char;
+        return char === Element.ROBOT_FALLING.char;
+    };
+
     var countNear = function (layer, x, y, element) {
         if (pt(x, y).isBad(size)) {
             return 0;
@@ -636,6 +655,8 @@ var Board = function (boardString) {
         return layersString[LAYER2].indexOf(Element.ROBOT_LASER.char) == -1 &&
             layersString[LAYER2].indexOf(Element.ROBOT_FALLING.char) == -1;
     };
+
+
 
     var barriers = null;
     var barriersMap = null;
@@ -873,7 +894,7 @@ var Board = function (boardString) {
         var result = source;
         for (var i = 0; i < result.length; ++i) {
             var el = Element.getElement(mask[i]);
-            if (Element.isWall(el)) {
+            if (Element.isWall(el) || Element.isHole(el)) {
                 result = setCharAt(result, i, el.char);
             }
         }
@@ -962,6 +983,9 @@ var Board = function (boardString) {
         getZombieStart: getZombieStart,
         getPerks: getPerks,
         getExits: getExits,
+        isHoleAt: isHoleAt,
+        isMeFlying: isMeFlying,
+        isMeFalling: isMeFalling,
         getHoles: getHoles,
         isMeAlive: isMeAlive,
         isAt: isAt,
@@ -1073,15 +1097,21 @@ var YourSolver = function (board) {
         } else if (shortestWayElement.y < hero.y) {
             command = Command.go(Direction.DOWN);
         }
+
         return command;
     }
 
     function collectGold(hero, command) {
-
         let goldPoint = board.getGold()[0];
-
-        let goldStep = board.getShortestWay(hero, goldPoint)[1];
+        const goldStep = board.getShortestWay(hero, goldPoint)[1];
         command = turn(goldStep, hero, command);
+
+        if (board.isMeFlying(hero.x, hero.y)) {
+        } else if(board.isMeFalling(hero.x, hero.y)){
+            command = Command.doNothing()
+        } else if (board.isHoleAt(goldStep.x, goldStep.y, LAYER1)) {
+            command = Command.jump(Direction.RIGHT)
+        }
         return command;
     }
 
